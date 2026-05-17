@@ -3,6 +3,7 @@ from database import init_db, get_connection
 from dashboard import DashboardFrame
 from planner import PlannerFrame
 from timer import TimerFrame
+from progress import ProgressFrame
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -20,6 +21,7 @@ class App(ctk.CTk):
         
         self.current_user_id = None
         self.current_username = None
+        self.current_streak = 0
         
         self.show_login_screen()
 
@@ -54,15 +56,22 @@ class App(ctk.CTk):
         
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM users WHERE username = ? AND password = ?", (username, password))
+        cursor.execute("SELECT id, streak FROM users WHERE username = ? AND password = ?", (username, password))
         user = cursor.fetchone()
-        conn.close()
         
         if user:
+            # Increment streak simply on login (demo purposes)
+            new_streak = user[1] + 1
+            cursor.execute("UPDATE users SET streak = ? WHERE id = ?", (new_streak, user[0]))
+            conn.commit()
+            
             self.current_user_id = user[0]
             self.current_username = username
+            self.current_streak = new_streak
+            conn.close()
             self.show_main_app()
         else:
+            conn.close()
             self.error_label.configure(text="Invalid Username or Password")
 
     def register(self):
@@ -108,8 +117,11 @@ class App(ctk.CTk):
         timer_btn = ctk.CTkButton(self.sidebar_frame, text="Pomodoro Timer", command=self.show_timer_view)
         timer_btn.grid(row=3, column=0, padx=20, pady=10)
         
+        progress_btn = ctk.CTkButton(self.sidebar_frame, text="Progress", command=self.show_progress_view)
+        progress_btn.grid(row=4, column=0, padx=20, pady=10)
+        
         # User profile & logout at bottom
-        user_label = ctk.CTkLabel(self.sidebar_frame, text=f"User: {self.current_username}")
+        user_label = ctk.CTkLabel(self.sidebar_frame, text=f"Profile: {self.current_username}\n🔥 Streak: {self.current_streak} Days", justify="left")
         user_label.grid(row=5, column=0, padx=20, pady=(0, 5), sticky="s")
         
         logout_btn = ctk.CTkButton(self.sidebar_frame, text="Logout", command=self.logout, fg_color="red", hover_color="dark red")
@@ -123,6 +135,7 @@ class App(ctk.CTk):
         self.dashboard_view = DashboardFrame(self.main_content_frame, self.current_user_id)
         self.planner_view = PlannerFrame(self.main_content_frame, self.current_user_id)
         self.timer_view = TimerFrame(self.main_content_frame, self.current_user_id)
+        self.progress_view = ProgressFrame(self.main_content_frame, self.current_user_id)
         
         # Default view
         self.show_dashboard_view()
@@ -131,6 +144,7 @@ class App(ctk.CTk):
         self.dashboard_view.pack_forget()
         self.planner_view.pack_forget()
         self.timer_view.pack_forget()
+        self.progress_view.pack_forget()
 
     def show_dashboard_view(self):
         self.hide_all_views()
@@ -144,6 +158,11 @@ class App(ctk.CTk):
     def show_timer_view(self):
         self.hide_all_views()
         self.timer_view.pack(fill="both", expand=True)
+
+    def show_progress_view(self):
+        self.hide_all_views()
+        self.progress_view.load_progress()
+        self.progress_view.pack(fill="both", expand=True)
 
     def logout(self):
         self.current_user_id = None
