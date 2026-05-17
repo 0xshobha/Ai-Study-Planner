@@ -48,6 +48,16 @@ class PlannerFrame(ctk.CTkFrame):
         add_btn = ctk.CTkButton(form_frame, text="Add Task", command=self.add_task, width=100)
         add_btn.grid(row=0, column=3, padx=5)
         
+        # Search Bar
+        search_frame = ctk.CTkFrame(tab, fg_color="transparent")
+        search_frame.pack(fill="x", pady=5)
+        
+        self.search_entry = ctk.CTkEntry(search_frame, placeholder_text="Search tasks...", width=300)
+        self.search_entry.pack(side="left", padx=5)
+        
+        search_btn = ctk.CTkButton(search_frame, text="Search", command=self.load_tasks, width=100)
+        search_btn.pack(side="left", padx=5)
+        
         # Task List
         self.task_scroll = ctk.CTkScrollableFrame(tab)
         self.task_scroll.pack(fill="both", expand=True, pady=10)
@@ -74,9 +84,18 @@ class PlannerFrame(ctk.CTkFrame):
         for widget in self.task_scroll.winfo_children():
             widget.destroy()
             
+        search_query = self.search_entry.get().strip()
+        
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, title, subject, deadline, status FROM tasks WHERE user_id = ? ORDER BY id DESC", (self.user_id,))
+        
+        if search_query:
+            cursor.execute("SELECT id, title, subject, deadline, status FROM tasks WHERE user_id = ? AND title LIKE ? ORDER BY id DESC", 
+                           (self.user_id, f"%{search_query}%"))
+        else:
+            cursor.execute("SELECT id, title, subject, deadline, status FROM tasks WHERE user_id = ? ORDER BY id DESC", 
+                           (self.user_id,))
+                           
         tasks = cursor.fetchall()
         conn.close()
         
